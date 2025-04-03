@@ -1,20 +1,30 @@
-import { users } from "../../lib/users";
+import { connectToDatabase } from "@/lib/mongodb";
+import User from "@/models/User"
+import bcrypt from "bcrypt";
+
 
 export async function POST(req) {
     try{ 
         const { email, password } = await req.json();
 
-        // Check if user is in database
-        if (users.find(user => user.email === email)){
-            return new Response(JSON.stringify({ message: "User already exists" }), { status: 400 });
+        if (!email || !password) {
+            return new Response(JSON.stringify({ message: "Misssing email or password"}), { status: 400});
         }
 
-        users.push({ email, password});
+        await connectToDatabase();
 
-        return new Response(JSON.stringify({message: "User registered successfully" }), { status: 201 });
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return new Response(JSON.stringify({ message: "User already exists" }), { status: 400});
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = new User({ email, password: hashedPassword });
+        await newUser.save();
+
+        return new Response(JSON.stringify({ message: "User registered successfully" }), { status: 201});
     } catch (error) {
-        return new Response(JSON.stringify({message: "Error registering user "}), { status: 500});
+        console.error("Error:", error);
+        return new Response(JSON.stringify({ message: "Internal Server Error" }), {status: 500});
     }
-
-    
 }
