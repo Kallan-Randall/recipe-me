@@ -1,17 +1,36 @@
-import { users } from "../../../../lib/users";
+import { connectToDatabase } from "@/lib/mongodb";
+import User from "@/models/User";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { cookies } from "next/headers"
 
 export async function POST(req) {
-    try { 
+    try {
+        await connectToDatabase();
+
         const { email, password } = await req.json();
 
-        const user = users.find(user => user.email === email && user.password === password);
+        const user = await User.findOne({ email });
         if (!user) {
-            return new Response(JSON.stringify({ message: "Invalid credintials" }), { status: 401});
-
+            return Response.json({ error: "invalid email or password" }, {status: 401});
         }
 
-        return new Response(JSON.stringify({ message: "login successful" }), { status: 200 });
+        const token =  jwt.sign(
+            { id: user._id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" }
+        );
+
+        cookies().set("auth_token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            path: "/"
+        });
+
+        return Response.json({ message: "Login successful" }, { status: 200 });
+
     } catch (error) {
-        return new Response(JSON.stringify({ message: "Error logging in" }), { status: 500});
+        console.error("Login error:", error);
+        return Response.json({ error: "Something went wrong" }, { status: 500});
     }
 }
