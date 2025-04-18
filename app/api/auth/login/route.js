@@ -21,10 +21,11 @@ export async function POST(req) {
             { expiresIn: "1h" }
         );
 
-        cookies().set("auth_token", token, {
+        const cookieStore = cookies();
+        (await cookieStore).set("auth_token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            path: "/"
+            path: "/",
         });
 
         return Response.json({ message: "Login successful" }, { status: 200 });
